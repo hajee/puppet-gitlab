@@ -13,7 +13,7 @@ production:
   pool: 5
   username: <%= gitlab_dbuser %>
   password: <%= gitlab_dbpwd %>
-  # host: localhost
+  host: localhost
   # socket: /tmp/mysql.sock
 <% when 'postgres' -%>
 production:
@@ -23,7 +23,7 @@ production:
   pool: 5
   username: <%= gitlab_dbuser %>
   password: <%= gitlab_dbpwd %>
-  # host: localhost
+  host: localhost
   # port: 5432
   # socket: /tmp/postgresql.sock
 <% end -%>

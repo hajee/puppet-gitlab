@@ -2,7 +2,7 @@
 class gitlab::server {
   include gitlab
   require gitlab::gitolite
-  require gitlab::nginx
+  # require gitlab::nginx
 
   $gitlab_dbtype  = $gitlab::gitlab_dbtype
   $gitlab_dbname  = $gitlab::gitlab_dbname
@@ -14,9 +14,6 @@ class gitlab::server {
   $git_email      = $gitlab::git_email
 
   package {
-    'bundler':
-      ensure   => installed,
-      provider => gem;
     'charlock_holmes':
       ensure   => '0.6.9',
       provider => gem;
@@ -44,25 +41,26 @@ class gitlab::server {
       creates     => "${gitlab_home}/gitlab",
       logoutput   => 'on_failure',
       cwd         => $gitlab_home,
-      path        => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      path        => '/usr/local/rvm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       user        => $gitlab_user,
       unless      => "/usr/bin/test -d ${gitlab_home}/gitlab";
     'Install gitlab':
-      command     => "bundle install --without development test ${gitlab_without_gems} --deployment",
+      command     => "rvm all do bundle install --without development test ${gitlab_without_gems} --deployment",
       logoutput   => 'on_failure',
       provider    => shell,
       cwd         => "${gitlab_home}/gitlab",
-      path        => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      path        => '/usr/local/rvm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       user        => $gitlab_user,
       require     => [Exec['Get gitlab'], Package['bundler']];
-    'Setup gitlab DB':
-      command     => 'bundle exec rake gitlab:app:setup RAILS_ENV=production; bundle exec rake gitlab:app:enable_automerge RAILS_ENV=production; bundle exec rake db:migrate RAILS_ENV=production',
+    'Setup gitlab':
+      command     => 'rvm all do bundle exec rake gitlab:app:setup RAILS_ENV=production',
       logoutput   => 'on_failure',
       provider    => shell,
       cwd         => "${gitlab_home}/gitlab",
-      path        => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      path        => '/usr/local/rvm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       user        => $gitlab_user,
       require     => [
+        Pg_database['gitlab'],
         Exec['Install gitlab'],
         File["${gitlab_home}/gitlab/config/database.yml"],
         File["${gitlab_home}/gitlab/tmp"],
@@ -71,8 +69,25 @@ class gitlab::server {
         Package['bundler']
         ],
       refreshonly => true;
+    'Setup gitlab enable automerge':
+      command     => 'rvm all do bundle exec rake gitlab:app:enable_automerge RAILS_ENV=production',
+      logoutput   => 'on_failure',
+      provider    => shell,
+      cwd         => "${gitlab_home}/gitlab",
+      path        => '/usr/local/rvm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      user        => $gitlab_user,
+      refreshonly => true,
+      require     => Exec['Setup gitlab'];
+    'Setup gitlab DB':
+      command     => 'rvm all do bundle exec rake db:migrate RAILS_ENV=production',
+      logoutput   => 'on_failure',
+      provider    => shell,
+      cwd         => "${gitlab_home}/gitlab",
+      path        => '/usr/local/rvm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      user        => $gitlab_user,
+      refreshonly => true,
+      require     => Exec['Setup gitlab enable automerge'];
   }
-
 
   # fixing eventmachine and thin gem build problems on newer debian/ubuntu versions
   if ($::osfamily == 'Debian'){
@@ -111,7 +126,7 @@ class gitlab::server {
       group   => $gitlab_user,
       mode    => '0640',
       require => Exec['Get gitlab'],
-      notify  => Exec['Setup gitlab DB'];
+      notify  => Exec['Setup gitlab'];
     "${gitlab_home}/gitlab/tmp":
       ensure  => directory,
       owner   => $gitlab_user,
@@ -186,7 +201,7 @@ class gitlab::server {
       group   => root,
       mode    => '0755',
       notify  => Service['gitlab'],
-      require => Exec['Setup gitlab DB'];
+      require => Exec['Setup gitlab'];
   }
 
   service {

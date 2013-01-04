@@ -82,7 +82,7 @@ class gitlab::gitolite {
       command     => "sudo -u ${git_user} -H sh -c \"PATH=${git_home}/bin:/usr/sbin:/usr/bin:/sbin:/bin; gitolite setup -pk ${git_home}/${git_user}.pub\"",
       path        => "/bin:/usr/sbin:/usr/bin:/sbin:/bin",
       user        => root,
-      require     => [File["${git_home}/.gitconfig"],File["${git_home}/${git_user}.pub"]],
+      require     => [File["${git_home}/.gitconfig"],File["${git_home}/${git_user}.pub"],Exec['Install patched gitolite']],
       logoutput   => 'on_failure',
       creates     => "${git_home}/projects.list";
   }

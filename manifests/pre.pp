@@ -11,6 +11,9 @@ class gitlab::pre {
   $git_comment    = $gitlab::git_comment
   $gitlab_comment = $gitlab::gitlab_comment
 
+
+
+
   user {
     $git_user:
       ensure     => present,
@@ -28,6 +31,21 @@ class gitlab::pre {
       comment    => $gitlab_comment,
       require    => User[$git_user];
   }
+
+
+  file {
+    $git_home:
+      ensure  => directory,
+      owner   => $git_user,
+  }
+
+
+  file {
+    $gitlab_home:
+      ensure  => directory,
+      owner   => $gitlab_user,
+  }
+
 
   # try and decide about the family here, deal with version/dist specifics within the class
   case $::osfamily {
@@ -49,7 +67,7 @@ class gitlab::redhat_packages {
   package {
     [ 'git','wget','curl','redis','openssh-server','python-pip','libicu-devel',
       'libxml2-devel','libxslt-devel','python-devel','libcurl-devel','readline-devel',
-      'openssl-devel','zlib-devel','libyaml-devel','postgresql-devel','mysql-devel']:
+      'openssl-devel','zlib-devel','libyaml-devel','postgresql-devel']:
         ensure => installed;
   }
 
@@ -71,66 +89,59 @@ class gitlab::debian_packages {
   }
 
   package {
-    ['git','git-core','wget','curl','redis-server',
+    ['git','wget',
       'openssh-server','python-pip','libicu-dev',
-      'libxml2-dev','libxslt1-dev','python-dev',
-      'libmysql++-dev','libmysqlclient-dev']:
+      'python-dev','libpq-dev']:
         ensure  => installed,
         require => Exec['apt-get update'],
   }
 
-  case $::lsbdistcodename {
-    # Need to install a fresh ruby version…
-    'squeeze','precise': {
-      package {
-        ['checkinstall','libcurl4-openssl-dev','libreadline6-dev','libpq-dev',
-        'libssl-dev','build-essential','zlib1g-dev','libyaml-dev','libc6-dev']:
-          require => Exec['apt-get update'],
-          ensure  => installed;
-      }
 
-      exec {
-        'Get Ruby 1.9.3':
-          command     => 'wget http://ftp.ruby-lang.org/pub/ruby/1.9/ruby-1.9.3-p194.tar.gz',
-          path        => '/usr/sbin:/sbin:/usr/bin:/bin',
-          cwd         => '/root',
-          user        => root,
-          logoutput   => 'on_failure',
-          unless      => 'test -f /root/ruby-1.9.3-p194.tar.gz';
-        'Untar Ruby 1.9.3':
-          command     => 'tar xfz ruby-1.9.3-p194.tar.gz',
-          path        => '/usr/sbin:/sbin:/usr/bin:/bin',
-          cwd         => '/root',
-          user        => root,
-          require     => Exec['Get Ruby 1.9.3'],
-          unless      => 'test -d /root/ruby-1.9.3-p194',
-          logoutput   => 'on_failure',
-          notify      => Exec['Configure and Install Ruby 1.9.3'];
-        'Configure and Install Ruby 1.9.3':
-          command     => '/bin/sh configure && make && make install',
-          cwd         => '/root/ruby-1.9.3-p194/',
-          path        => '/usr/sbin:/sbin:/usr/bin:/bin',
-          user        => root,
-          timeout     => 900,
-          require     => Exec['Untar Ruby 1.9.3'],
-          logoutput   => 'on_failure',
-          refreshonly => true;
-      }
-    } # Squeeze, Precise
-    default: {
-      # Assuming default ruby 1.9.3 (wheezy,quantal)
-      package {
-        ['ruby','ruby-dev','rubygems','rake']:
-          require => Exec['apt-get update'],
-          ensure  => installed;
-      }
-    } # Default
-  } # Case:: $::operatingsystem
+  # case $::lsbdistcodename {
+  #   # Need to install a fresh ruby version…
+  #   'squeeze','precise': {
+  #     package {
+  #       ['checkinstall','libpq-dev']:
+  #         require => Exec['apt-get update'],
+  #         ensure  => installed;
+  #     }
 
-  service {
-    'redis-server':
-      ensure  => running,
-      enable  => true,
-      require => Package['redis-server'];
-  }
+  #     exec {
+  #       'Get Ruby 1.9.3':
+  #         command     => 'wget http://ftp.ruby-lang.org/pub/ruby/1.9/ruby-1.9.3-p194.tar.gz',
+  #         path        => '/usr/sbin:/sbin:/usr/bin:/bin',
+  #         cwd         => '/root',
+  #         user        => root,
+  #         logoutput   => 'on_failure',
+  #         unless      => 'test -f /root/ruby-1.9.3-p194.tar.gz';
+  #       'Untar Ruby 1.9.3':
+  #         command     => 'tar xfz ruby-1.9.3-p194.tar.gz',
+  #         path        => '/usr/sbin:/sbin:/usr/bin:/bin',
+  #         cwd         => '/root',
+  #         user        => root,
+  #         require     => Exec['Get Ruby 1.9.3'],
+  #         unless      => 'test -d /root/ruby-1.9.3-p194',
+  #         logoutput   => 'on_failure',
+  #         notify      => Exec['Configure and Install Ruby 1.9.3'];
+  #       'Configure and Install Ruby 1.9.3':
+  #         command     => '/bin/sh configure && make && make install',
+  #         cwd         => '/root/ruby-1.9.3-p194/',
+  #         path        => '/usr/sbin:/sbin:/usr/bin:/bin',
+  #         user        => root,
+  #         timeout     => 900,
+  #         require     => Exec['Untar Ruby 1.9.3'],
+  #         logoutput   => 'on_failure',
+  #         refreshonly => true;
+  #     }
+  #   } # Squeeze, Precise
+  #   default: {
+  #     # Assuming default ruby 1.9.3 (wheezy,quantal)
+  #     package {
+  #       ['ruby','ruby-dev','rubygems','rake']:
+  #         require => Exec['apt-get update'],
+  #         ensure  => installed;
+  #     }
+  #   } # Default
+  # } # Case:: $::operatingsystem
+
 } # Class:: gitlab::pre
